@@ -24,11 +24,30 @@ def broadcast(message):
 	for client in sessionUsers:
 		client.send(message)
 
+def getOnlineUsers(clientIdentity):
+	onlineList = []
+	for key in onlineUsers.keys():
+		if (onlineUsers[key] != clientIdentity):
+			onlineList.append(key)
+		
+			
+				
+	serialized_list = json.dumps(onlineList).encode()
+	return serialized_list
+
 def handle(client):
 	while True:
 		try:
 			message = client.recv(1024)
-			broadcast(message)
+			stringMessage = message.decode()
+			listMessage = stringMessage.split()
+
+			if (listMessage[1] == "ONLINE"):
+				onlineList = getOnlineUsers(client) #list
+				client.send(onlineList)
+
+			else:
+				broadcast(message)
 		except:
 			#terminate this loop
 			index = sessionUsers.index(client)
@@ -68,16 +87,14 @@ def receive():
 				
 				
 
-				sendList = [x for x in nicknames if x != nickname]  # use list comprehension to create a new list without the element
-				serialized_list = json.dumps(sendList).encode()
-				print("SERVER: about to send this list: ", serialized_list)
 				
+				serialized_list = getOnlineUsers(client)
 				client.send(serialized_list)
 
 						
 				sessionUsers.append(client)
 				broadcast(f'{nickname} joined the chat!'.encode('ascii'))
-				client.send('Connected to the server!'.encode('ascii'))
+				client.send('Connected to the server!\n\tIf you would like to check who is online, type "ONLINE"'.encode('ascii'))
 				thread = threading.Thread(target=handle, args=(client,))
 				thread.start()
 			else:

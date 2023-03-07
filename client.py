@@ -21,7 +21,7 @@ def receive():
                     received_data = client.recv(1024)
                     deserialized_data = json.loads(received_data.decode())
                 
-                if (len(deserialized_data) > 0):
+                if (len(deserialized_data) > 0): # b'["user1"]'
                     print("Here are the online users:\n", deserialized_data)
                 else:
                     print("No other users are online at the moment\n")
@@ -29,6 +29,7 @@ def receive():
             
             else:
                 print(message)
+                
             
         except:
             print("An error occured!")
