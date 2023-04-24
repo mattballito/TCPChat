@@ -1,10 +1,11 @@
 import socket
 import threading
 import json
+import hashlib
 
 userName = input("Enter your username: ")
 passWord = input("Enter your password: ")
-client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(('127.0.0.1', 55555))
 
 def receive():
@@ -13,30 +14,24 @@ def receive():
             message = client.recv(1024).decode('ascii')
             if message == 'NICK':
                 client.send(userName.encode('ascii'))
-                client.send(passWord.encode('ascii'))
+                hashed_password = hashlib.sha256(passWord.encode()).hexdigest()
+                client.send(hashed_password.encode('ascii'))
             elif message == "USERLIST":
-
                 message = client.recv(1024).decode('ascii')
                 if (message == "LISTDATA"):
                     received_data = client.recv(1024)
                     deserialized_data = json.loads(received_data.decode())
-                
-                if (len(deserialized_data) > 0): # b'["user1"]'
+
+                if (len(deserialized_data) > 0):
                     print("Here are the online users:\n", deserialized_data)
                 else:
                     print("No other users are online at the moment\n")
-                
-            
             else:
                 print(message)
-                
-            
         except:
-            print("An error occured!")
+            print("An error occurred!")
             client.close()
             break
-
-
 
 def write():
     while True:
