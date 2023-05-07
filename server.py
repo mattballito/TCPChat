@@ -86,8 +86,10 @@ def receive():
                 thread.start()
             else:
                 print(f'{nickname} exists, but password is incorrect')
+                client.send('RESTART'.encode('ascii'))
         else:
             print("No such user exists in registry.")
+            client.send('RESTART'.encode('ascii'))
 
 print("Server is listening..")
 receive()
