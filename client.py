@@ -39,7 +39,11 @@ def receive():
 def write():
     while True:
         message = f'{userName}: {input("")}'
-        client.send(message.encode('ascii'))
+        listMessage = message.split()
+        if (len(listMessage) >= 2):
+            client.send(message.encode('ascii'))
+        else:
+            print("Message empty. Please type some text!\n")
 
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()
