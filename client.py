@@ -28,6 +28,9 @@ def receive():
                     print("No other users are online at the moment\n")
             else:
                 print(message)
+                if message == 'RESTART':
+                    print("Invalid login. Please restart the client!")
+                    client.close()
         except:
             print("An error occurred!")
             client.close()
