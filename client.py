@@ -6,7 +6,7 @@ import hashlib
 userName = input("Enter your username: ")
 passWord = input("Enter your password: ")
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(('127.0.0.1', 55555))
+client.connect(('127.0.0.1', 55567))
 
 def receive():
     while True:
@@ -38,10 +38,19 @@ def receive():
 
 def write():
     while True:
-        message = f'{userName}: {input("")}'
-        listMessage = message.split()
-        if (len(listMessage) >= 2):
-            client.send(message.encode('ascii'))
+        raw_message = input("")
+        listMessage = raw_message.split()
+        if (len(listMessage) >= 1):
+            if listMessage[0].upper() == "INVITE":
+                # Directly send the INVITE command to the server without userName prepended
+                client.send(raw_message.encode('ascii'))
+            elif listMessage[0].upper() == "ONLINE":
+                # Send the ONLINE command to the server with userName prepended
+                message = f'{userName}: {raw_message}'
+                client.send(message.encode('ascii'))
+            else:
+                message = f'{userName}: {raw_message}'
+                client.send(message.encode('ascii'))
         else:
             print("Message empty. Please type some text!\n")
 

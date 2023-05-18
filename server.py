@@ -4,7 +4,7 @@ import json
 import hashlib
 
 host = "127.0.0.1"
-port = 55555
+port = 55567
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((host, port))
@@ -12,6 +12,7 @@ server.listen()
 
 sessionUsers = []
 nicknames = []
+onlineNotInChat = []
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -46,6 +47,17 @@ def handle(client):
             if (listMessage[1] == "ONLINE"):
                 onlineList = getOnlineUsers(client)
                 client.send(onlineList)
+            elif listMessage[0] == "INVITE":
+                if listMessage[1] in onlineNotInChat:
+                    invitee = onlineUsers[listMessage[1]]
+                    invitee.send(f"You have been invited to the chat by {nicknames[sessionUsers.index(client)]}. To accept, type 'ACCEPT'".encode('ascii'))
+                else:
+                    client.send("User is not available for invitation".encode('ascii'))
+            elif listMessage[0] == "ACCEPT":
+                if client in onlineUsers.values() and nicknames[onlineUsers.values().index(client)] in onlineNotInChat:
+                    sessionUsers.append(client)
+                    onlineNotInChat.remove(nicknames[onlineUsers.values().index(client)])
+                    broadcast(f'{nicknames[onlineUsers.values().index(client)]} joined the chat!'.encode('ascii'))
             else:
                 broadcast(message)
         except:
@@ -79,9 +91,14 @@ def receive():
                 serialized_list = getOnlineUsers(client)
                 client.send(serialized_list)
 
-                sessionUsers.append(client)
-                broadcast(f'{nickname} joined the chat!'.encode('ascii'))
-                client.send('Connected to the server!\n\tIf you would like to check who is online, type "ONLINE"'.encode('ascii'))
+                if len(sessionUsers) == 0:  # Add user to chat session if it's the first user
+                    sessionUsers.append(client)
+                    broadcast(f'{nickname} joined the chat!'.encode('ascii'))
+            
+                else:
+                    onlineNotInChat.append(nickname)  # Add user to onlineNotInChat list if it's not the first user
+
+                client.send('Connected to the server!\n\tIf you would like to check who is online, type "ONLINE"\n\tIf you would like to invite someone to the chat, type "INVITE <username>"'.encode('ascii'))
                 thread = threading.Thread(target=handle, args=(client,))
                 thread.start()
             else:
@@ -93,3 +110,4 @@ def receive():
 
 print("Server is listening..")
 receive()
+
