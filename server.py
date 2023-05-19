@@ -36,6 +36,10 @@ def getOnlineUsers(clientIdentity):
     serialized_list = json.dumps(onlineList).encode()
     return serialized_list
 
+from cryptography.fernet import Fernet
+
+chat_keys = {}  # dictionary to store chat keys
+
 def handle(client):
     while True:
         try:
@@ -43,9 +47,18 @@ def handle(client):
             stringMessage = message.decode()
             listMessage = stringMessage.split()
 
-            if (listMessage[1] == "ONLINE"):
+            if listMessage[0] == "CHATWITH":  # if "CHATWITH" command is in the message
+                user_to_chat_with = listMessage[1]
+
+    # generate a symmetric key
+                key = Fernet.generate_key()
+                chat_keys[frozenset([client, onlineUsers.get(user_to_chat_with)])] = key
+                print({key})
+
+            elif listMessage[0] == "ONLINE":
                 onlineList = getOnlineUsers(client)
                 client.send(onlineList)
+
             else:
                 broadcast(message)
         except:
@@ -57,6 +70,8 @@ def handle(client):
             onlineUsers.pop(nickname)
             nicknames.remove(nickname)
             break
+
+
 
 def receive():
     while True:
@@ -81,13 +96,14 @@ def receive():
 
                 sessionUsers.append(client)
                 broadcast(f'{nickname} joined the chat!'.encode('ascii'))
-                client.send('Connected to the server!\n\tIf you would like to check who is online, type "ONLINE"'.encode('ascii'))
                 thread = threading.Thread(target=handle, args=(client,))
                 thread.start()
             else:
                 print(f'{nickname} exists, but password is incorrect')
+                client.send('RESTART'.encode('ascii'))
         else:
             print("No such user exists in registry.")
+            client.send('RESTART'.encode('ascii'))
 
 print("Server is listening..")
 receive()

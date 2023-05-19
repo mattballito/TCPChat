@@ -28,15 +28,29 @@ def receive():
                     print("No other users are online at the moment\n")
             else:
                 print(message)
+                if message == 'RESTART':
+                    print("Invalid login. Please restart the client!")
+                    client.close()
         except:
             print("An error occurred!")
             client.close()
             break
 
 def write():
+    started_chats = set()
     while True:
-        message = f'{userName}: {input("")}'
-        client.send(message.encode('ascii'))
+        print("Type CHATNOW to initiate a chat session.")
+        user_input = input()
+        if user_input == "CHATNOW":
+            user_to_chat_with = input("Enter the username of the person you want to chat with: ")
+            if user_to_chat_with not in started_chats:
+                client.send(f"CHATWITH {user_to_chat_with}".encode('ascii'))
+                started_chats.add(user_to_chat_with)
+        else:
+            message = f'{userName}: {user_input}'
+            client.send(message.encode('ascii'))
+
+
 
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()
