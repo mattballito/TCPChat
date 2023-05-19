@@ -42,7 +42,7 @@ def write():
         print("Type CHATNOW to initiate a chat session.")
         user_input = input()
         if user_input == "CHATNOW":
-            user_to_chat_with = input("Enter the username of the person you want to chat with: ")
+            user_to_chat_with = input("Enter the username whom you want to communicate with: ")
             if user_to_chat_with not in started_chats:
                 client.send(f"CHATWITH {user_to_chat_with}".encode('ascii'))
                 started_chats.add(user_to_chat_with)
