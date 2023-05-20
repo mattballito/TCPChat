@@ -57,12 +57,20 @@ def write():
     while True:
         message = input()
         if message.startswith('INVITE'):
-            recipient = message.split(' ')[1]
-            client.send(f'INVITE {recipient} {username}'.encode('ascii'))
+            
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tINVITE <username>")
+            else:
+                recipient = message.split(' ')[1]
+                client.send(f'INVITE {recipient} {username}'.encode('ascii'))
+            
 
         elif message.startswith('ACCEPT'):
-            inviter = message.split(' ')[1]
-            client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tACCEPT <username>")
+            else:
+                inviter = message.split(' ')[1]
+                client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
 
         
 
