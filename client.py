@@ -1,47 +1,89 @@
 import socket
 import threading
 import json
+import hashlib
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
+from cryptography.hazmat.primitives import serialization
 
-userName = input("Enter your username: ")
-passWord = input("Enter your password: ")
-client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-client.connect(('127.0.0.1', 55555))
+host = '127.0.0.1'
+port = 55555
+
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect((host, port))
+
+username = input("Enter your username: ")
+password = input("Enter your password: ")
+
+private_chat_active = False
+private_chat_partner = ''
 
 def receive():
+    global private_chat_active, private_chat_partner
     while True:
         try:
             message = client.recv(1024).decode('ascii')
-            if message == 'NICK':
-                client.send(userName.encode('ascii'))
-                client.send(passWord.encode('ascii'))
-            elif message == "USERLIST":
 
+            if message == 'NICK':
+                client.send(username.encode('ascii'))
+                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                client.send(hashed_password.encode('ascii'))
+
+            elif message == 'USERLIST':
                 message = client.recv(1024).decode('ascii')
-                if (message == "LISTDATA"):
+                if message == 'LISTDATA':
                     received_data = client.recv(1024)
                     deserialized_data = json.loads(received_data.decode())
-                
-                if (len(deserialized_data) > 0): # b'["user1"]'
-                    print("Here are the online users:\n", deserialized_data)
-                else:
-                    print("No other users are online at the moment\n")
-                
-            
+
+                    if len(deserialized_data) > 0:
+                        print("Here are the online users:\n", deserialized_data)
+                    else:
+                        print("No other users are online at the moment.\n")
+
+            elif message.startswith('INVITE '):
+                inviter = message.split(' ')[1]
+                print(f'You have received an invitation from {inviter}!\nType "ACCEPT {inviter}" to accept the invitation.')
+
+
+
+            elif message == 'CHATEND':
+                print("Private chat ended. You can now communicate publicly.")
+                private_chat_active = False
+                private_chat_partner = ''
+
             else:
                 print(message)
-                
-            
+
+            if message == 'RESTART':
+                print("Invalid login. Please restart the client!")
+                client.close()
+
         except:
-            print("An error occured!")
+            print("An error occurred!")
             client.close()
             break
 
-
-
 def write():
+    global private_chat_active, private_chat_partner
     while True:
-        message = f'{userName}: {input("")}'
-        client.send(message.encode('ascii'))
+        message = input()
+        if message.startswith('INVITE'):
+            recipient = message.split(' ')[1]
+            client.send(f'INVITE {recipient}'.encode('ascii'))
+
+        elif message.startswith('ACCEPT'):
+            inviter = message.split(' ')[1]
+            client.send(f'ACCEPT {inviter}'.encode('ascii'))
+
+        elif private_chat_active:
+            if message.startswith('ENDCHAT'):
+                client.send('ENDCHAT'.encode('ascii'))
+                private_chat_active = False
+                private_chat_partner = ''
+            elif message:
+                client.send(f'CHAT {private_chat_partner} {message}'.encode('ascii'))
+
+        else:
+            client.send(message.encode('ascii'))
 
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()

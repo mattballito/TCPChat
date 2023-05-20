@@ -1,115 +1,141 @@
 import socket
 import threading
 import json
+import hashlib
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
+from cryptography.hazmat.primitives import serialization
 
 host = "127.0.0.1"
 port = 55555
 
-
-server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-server.bind((host,port))
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((host, port))
 server.listen()
-
 
 sessionUsers = []
 nicknames = []
 
-userRegistry = {"user1":"pass1",
-				"user2":"pass2",
-				"user3":"pass3"}
+def read_user_registry(file_path):
+    user_registry = {}
+    with open(file_path, 'r') as file:
+        for line in file:
+            user, hashed_password = line.strip().split(':')
+            user_registry[user] = {
+                'hashed_password': hashed_password,
+                'signature_algorithm': 'RSA'  # Set the default signature algorithm (e.g., RSA)
+            }
+    return user_registry
 
+userRegistry = read_user_registry('hashed_passwords.txt')
+
+
+
+
+userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
 
-def broadcast(message):
-	for client in sessionUsers:
-		client.send(message)
+private_chats = {}
 
-def getOnlineUsers(clientIdentity):
-	onlineList = []
-	for key in onlineUsers.keys():
-		if (onlineUsers[key] != clientIdentity):
-			onlineList.append(key)
-		
-			
-				
-	serialized_list = json.dumps(onlineList).encode()
-	return serialized_list
+def get_online_users(client_identity):
+    online_list = []
+    for key in onlineUsers.keys():
+        if onlineUsers[key] != client_identity:
+            online_list.append(key)
+    serialized_list = json.dumps(online_list).encode()
+    return serialized_list
+
+def broadcast(message, sender):
+    for client in sessionUsers:
+        if client != sender:
+            client.send(message)
+
+def handle_private_chat(client, recipient):
+    while True:
+        try:
+            message = client.recv(1024)
+            private_chats[recipient].send(message)
+        except:
+            break
 
 def handle(client):
-	while True:
-		try:
-			message = client.recv(1024)
-			stringMessage = message.decode()
-			listMessage = stringMessage.split()
+    in_private_chat = False
+    private_chat_partner = None
+    while True:
+        try:
+            message = client.recv(1024)
+            string_message = message.decode()
+            list_message = string_message.split()
 
-			if (listMessage[1] == "ONLINE"):
-				onlineList = getOnlineUsers(client) #list
-				client.send(onlineList)
+            if list_message[0] == 'ONLINE':
+                online_list = get_online_users(client)
+                client.send(online_list)
 
-			else:
-				broadcast(message)
-		except:
-			#terminate this loop
-			index = sessionUsers.index(client)
-			sessionUsers.remove(client)
-			client.close()
-			nickname = nicknames[index]
-			broadcast(f'{nickname} left the chat!'.encode('ascii'))
-			onlineUsers.pop(nickname)
-			nicknames.remove(nickname)
-			break
+            elif list_message[0] == 'INVITE':
+                recipient = list_message[1]
+                if recipient in onlineUsers:
+                    onlineUsers[recipient].send(f'INVITE {nicknames[sessionUsers.index(client)]}'.encode('ascii'))
 
+            elif list_message[0] == 'ACCEPT':
+                sender = list_message[1]
+                if sender in onlineUsers:
+                    private_chats[client] = onlineUsers[sender]
+                    private_chats[onlineUsers[sender]] = client
+                    in_private_chat = True
+                    private_chat_partner = onlineUsers[sender]
 
+            elif list_message[0] == 'ENDCHAT':
+                in_private_chat = False
+                private_chat_partner = None
 
+            elif in_private_chat:
+                # If in a private chat, send the message to the other chat participant.
+                private_chat_partner.send(message)
 
+            else:
+                broadcast(message, client)
+
+        except:
+            index = sessionUsers.index(client)
+            sessionUsers.remove(client)
+            client.close()
+            nickname = nicknames[index]
+            broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
+            onlineUsers.pop(nickname)
+            nicknames.remove(nickname)
+            break
 
 
 def receive():
-	while True:
-		client, address = server.accept() #accept clients all the time
-		print(f"Connected with {str(address)}")	#when a client connects say their address
+    while True:
+        client, address = server.accept()
+        print(f"Connected with {str(address)}")
 
-		client.send('NICK'.encode('ascii'))	#then send to the client the prompt NICK to send nickname
-		nickname = client.recv(1024).decode('ascii')	#then recieve the username from client
-		password = client.recv(1024).decode('ascii')	#then recieve the password from client
-		#print(f'Server read in new password:{password}')
+        client.send('NICK'.encode('ascii'))
+        nickname = client.recv(1024).decode('ascii')
+        hashed_password = client.recv(1024).decode('ascii')
 
-		if (str(nickname) in userRegistry):
-			if (userRegistry[f'{nickname}'] == password):
-				print(f'{nickname} is now online in the server!')
-				onlineUsers[nickname] = client # set table with key as username, value as client variable
-				print("SERVER: this is dict:",onlineUsers)
-				nicknames.append(nickname)
+        if nickname in userRegistry and userRegistry[nickname] == hashed_password:
+            print(f'{nickname} is now online in the server!')
+            onlineUsers[nickname] = client
+            nicknames.append(nickname)
 
-				
-				client.send('USERLIST'.encode('ascii'))	#then prompt the client to enter a list of users to chat with
-				client.send('LISTDATA'.encode('ascii'))
-				
-				
+            client.send('USERLIST'.encode('ascii'))
+            client.send('LISTDATA'.encode('ascii'))
 
-				
-				serialized_list = getOnlineUsers(client)
-				client.send(serialized_list)
+            serialized_list = get_online_users(client)
+            client.send(serialized_list)
 
-						
-				sessionUsers.append(client)
-				broadcast(f'{nickname} joined the chat!'.encode('ascii'))
-				client.send('Connected to the server!\n\tIf you would like to check who is online, type "ONLINE"'.encode('ascii'))
-				thread = threading.Thread(target=handle, args=(client,))
-				thread.start()
-			else:
-				print(f'{nickname} exists, but password is incorrect')
-		else:
-			print("No such user exists in registry.")
+            sessionUsers.append(client)
+            broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
+            client.send('Connected to the server!\n\tIf you would like to invite, type "INVITE"'.encode('ascii'))
 
-		
+            thread = threading.Thread(target=handle, args=(client,))
+            thread.start()
 
-		
-		
-		
+        else:
+            print(f'{nickname} exists, but the password is incorrect')
+            client.send('RESTART'.encode('ascii'))
 
-		
 
 print("Server is listening..")
 receive()
-
