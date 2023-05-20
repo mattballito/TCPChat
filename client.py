@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import hashlib
+import cryptography
+from cryptography.fernet import Fernet
 
 host = '127.0.0.1'
 port = 55555
@@ -46,7 +48,11 @@ def receive():
                 ## gets decode message
                 ##rn it just pulls the unencrypted session key and displayes it/sets it
                 key=message.split(' ')[1]
-                session_key=key
+                key=key.split('b')[1]
+                key = key[:-1]
+                key=key[1:]
+                session_key= key.encode('ascii')
+                private_chat_active= True
                 print('Invite accepted, session key recieved', key)
 
             elif message == 'CHATEND':
@@ -84,7 +90,9 @@ def write():
                 private_chat_active = False
                 private_chat_partner = ''
             elif message:
-                client.send(f'CHAT {private_chat_partner} {message}'.encode('ascii'))
+                fernet = Fernet(session_key)
+                encrypted_message= fernet.encrypt(message)
+                client.send(f'CHAT {private_chat_partner} {encrypted_message}'.encode('ascii'))
 
         else:
             client.send(message.encode('ascii'))

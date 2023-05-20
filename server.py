@@ -82,6 +82,7 @@ def handle(client):
                     session_key = create_session_key()
 
                     onlineUsers[sender].send(f'SESSIONKEY {session_key}'.encode('ascii'))
+                    
                     client.send(f'SESSIONKEY {session_key}'.encode('ascii'))
             elif list_message[0] == 'ENDCHAT':
                 in_private_chat = False
