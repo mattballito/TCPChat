@@ -2,7 +2,8 @@ import socket
 import threading
 import json
 import hashlib
-
+import cryptography
+from cryptography.fernet import Fernet
 host = "127.0.0.1"
 port = 55555
 
@@ -12,6 +13,8 @@ server.listen()
 
 sessionUsers = []
 nicknames = []
+
+
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -47,6 +50,10 @@ def handle_private_chat(client, recipient):
         except:
             break
 
+def create_session_key():
+    key=Fernet.generate_key()
+    return key
+
 def handle(client):
     in_private_chat = False
     private_chat_partner = None
@@ -72,7 +79,10 @@ def handle(client):
                     private_chats[onlineUsers[sender]] = client
                     in_private_chat = True
                     private_chat_partner = onlineUsers[sender]
+                    session_key = create_session_key()
 
+                    onlineUsers[sender].send(f'SESSIONKEY {session_key}'.encode('ascii'))
+                    client.send(f'SESSIONKEY {session_key}'.encode('ascii'))
             elif list_message[0] == 'ENDCHAT':
                 in_private_chat = False
                 private_chat_partner = None

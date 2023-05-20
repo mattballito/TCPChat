@@ -14,6 +14,7 @@ password = input("Enter your password: ")
 
 private_chat_active = False
 private_chat_partner = ''
+session_key=""
 
 def receive():
     global private_chat_active, private_chat_partner
@@ -41,7 +42,12 @@ def receive():
                 inviter = message.split(' ')[1]
                 print(f'You have received an invitation from {inviter}!\nType "ACCEPT {inviter}" to accept the invitation.')
 
-
+            elif message.startswith('SESSIONKEY '):
+                ## gets decode message
+                ##rn it just pulls the unencrypted session key and displayes it/sets it
+                key=message.split(' ')[1]
+                session_key=key
+                print('Invite accepted, session key recieved', key)
 
             elif message == 'CHATEND':
                 print("Private chat ended. You can now communicate publicly.")
