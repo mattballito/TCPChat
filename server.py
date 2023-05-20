@@ -24,7 +24,7 @@ def read_user_registry(file_path):
 userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
 
-private_chats = {}
+
 
 def get_online_users(client_identity):
     online_list = []
@@ -39,17 +39,9 @@ def broadcast(message, sender):
         if client != sender:
             client.send(message)
 
-def handle_private_chat(client, recipient):
-    while True:
-        try:
-            message = client.recv(1024)
-            private_chats[recipient].send(message)
-        except:
-            break
+
 
 def handle(client):
-    in_private_chat = False
-    private_chat_partner = None
     while True:
         try:
             message = client.recv(1024)
@@ -62,36 +54,47 @@ def handle(client):
 
             elif list_message[0] == 'INVITE':
                 recipient = list_message[1]
+                originUsername = list_message[2]
                 if recipient in onlineUsers:
-                    onlineUsers[recipient].send(f'INVITE {nicknames[sessionUsers.index(client)]}'.encode('ascii'))
+                    onlineUsers[recipient].send(f'INVITATION {originUsername}'.encode('ascii'))
 
             elif list_message[0] == 'ACCEPT':
                 sender = list_message[1]
-                if sender in onlineUsers:
-                    private_chats[client] = onlineUsers[sender]
-                    private_chats[onlineUsers[sender]] = client
-                    in_private_chat = True
-                    private_chat_partner = onlineUsers[sender]
+                originUsername = list_message[2]
 
-            elif list_message[0] == 'ENDCHAT':
-                in_private_chat = False
-                private_chat_partner = None
 
-            elif in_private_chat:
-                # If in a private chat, send the message to the other chat participant.
-                private_chat_partner.send(message)
 
+                if originUsername in onlineUsers and sender in onlineUsers:
+                    """ Visualization for onlineUsers dictionary:
+                        onlineUsers["user1"] = <socket for user1 etc etc>
+                        onlineUsers["user1"] = <socket for user2 etc etc>
+                    """
+                    key_for_originUsername = next((key for key, value in onlineUsers.items() if value == originUsername), None) #get the client Handle based on username
+                    key_for_sender = next((key for key, value in onlineUsers.items() if value == sender), None) # get the client Handle based on username
+
+                    if key_for_originUsername not in sessionUsers:
+                        sessionUsers.append(onlineUsers[originUsername]) # add recipient to the session
+                    if key_for_sender not in sessionUsers:
+                        sessionUsers.append(onlineUsers[sender]) # add sender to the server
+
+                    onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+                    onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+                else:
+                    client.send("Invalid ACCEPT request. One of the parties is not online.".encode('ascii'))
             else:
                 broadcast(message, client)
 
         except:
-            index = sessionUsers.index(client)
-            sessionUsers.remove(client)
-            client.close()
-            nickname = nicknames[index]
-            broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
-            onlineUsers.pop(nickname)
-            nicknames.remove(nickname)
+            if (client in sessionUsers):
+                index = sessionUsers.index(client)
+                sessionUsers.remove(client)
+                client.close()
+                nickname = nicknames[index]
+                broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
+                onlineUsers.pop(nickname)
+                nicknames.remove(nickname)
+            else:
+                print("A user has disconnected!")
             break
 
 
@@ -115,8 +118,8 @@ def receive():
             serialized_list = get_online_users(client)
             client.send(serialized_list)
 
-            sessionUsers.append(client)
-            broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
+            #sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
+            #broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
             client.send('Connected to the server!\n\tIf you would like to invite, type "INVITE"'.encode('ascii'))
 
             thread = threading.Thread(target=handle, args=(client,))
