@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import hashlib
+import cryptography
+from cryptography.fernet import Fernet
 
 host = "127.0.0.1"
 port = 55555
@@ -39,6 +41,10 @@ def broadcast(message, sender):
         if client != sender:
             client.send(message)
 
+def create_session_key():
+    key=Fernet.generate_key()
+    print("session key for private chat generated:", key)
+    return key
 
 
 def handle(client):
@@ -77,8 +83,14 @@ def handle(client):
                     if key_for_sender not in sessionUsers:
                         sessionUsers.append(onlineUsers[sender]) # add sender to the server
 
-                    onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
-                    onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+                    session_key = create_session_key()
+
+                   # onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+                    onlineUsers[originUsername].send(f'SESSIONKEY '.encode('ascii'))
+                    onlineUsers[originUsername].send(session_key)
+                   # onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+                    onlineUsers[sender].send(f'SESSIONKEY '.encode('ascii'))
+                    onlineUsers[sender].send(session_key)
                 else:
                     client.send("Invalid ACCEPT request. One of the parties is not online.".encode('ascii'))
             else:
