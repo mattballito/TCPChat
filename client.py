@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import hashlib
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
+from cryptography.hazmat.primitives import serialization
 
 host = '127.0.0.1'
 port = 55555

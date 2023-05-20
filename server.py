@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import hashlib
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
+from cryptography.hazmat.primitives import serialization
 
 host = "127.0.0.1"
 port = 55555
@@ -18,8 +20,16 @@ def read_user_registry(file_path):
     with open(file_path, 'r') as file:
         for line in file:
             user, hashed_password = line.strip().split(':')
-            user_registry[user] = hashed_password
+            user_registry[user] = {
+                'hashed_password': hashed_password,
+                'signature_algorithm': 'RSA'  # Set the default signature algorithm (e.g., RSA)
+            }
     return user_registry
+
+userRegistry = read_user_registry('hashed_passwords.txt')
+
+
+
 
 userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
