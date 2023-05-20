@@ -52,6 +52,7 @@ def handle_private_chat(client, recipient):
 
 def create_session_key():
     key=Fernet.generate_key()
+    print(key)
     return key
 
 def handle(client):
@@ -81,9 +82,10 @@ def handle(client):
                     private_chat_partner = onlineUsers[sender]
                     session_key = create_session_key()
 
-                    onlineUsers[sender].send(f'SESSIONKEY {session_key}'.encode('ascii'))
-                    
-                    client.send(f'SESSIONKEY {session_key}'.encode('ascii'))
+                    onlineUsers[sender].send(f'SESSIONKEY '.encode('ascii'))
+                    onlineUsers[sender].send(session_key)
+                    client.send(f'SESSIONKEY '.encode('ascii'))
+                    client.send(session_key)
             elif list_message[0] == 'ENDCHAT':
                 in_private_chat = False
                 private_chat_partner = None

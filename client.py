@@ -19,7 +19,7 @@ private_chat_partner = ''
 session_key=""
 
 def receive():
-    global private_chat_active, private_chat_partner
+    global private_chat_active, private_chat_partner, session_key
     while True:
         try:
             message = client.recv(1024).decode('ascii')
@@ -47,13 +47,14 @@ def receive():
             elif message.startswith('SESSIONKEY '):
                 ## gets decode message
                 ##rn it just pulls the unencrypted session key and displayes it/sets it
+                session_key = client.recv(1024)
                 key=message.split(' ')[1]
-                key=key.split('b')[1]
-                key = key[:-1]
-                key=key[1:]
-                session_key= key.encode('ascii')
+               
+                #session_key=key
+                #session_key.encode()
+                print(type(session_key))
                 private_chat_active= True
-                print('Invite accepted, session key recieved', key)
+                print('Invite accepted, session key recieved', session_key)
 
             elif message == 'CHATEND':
                 print("Private chat ended. You can now communicate publicly.")
@@ -73,7 +74,7 @@ def receive():
             break
 
 def write():
-    global private_chat_active, private_chat_partner
+    global private_chat_active, private_chat_partner, session_key
     while True:
         message = input()
         if message.startswith('INVITE'):
@@ -90,7 +91,9 @@ def write():
                 private_chat_active = False
                 private_chat_partner = ''
             elif message:
+                
                 fernet = Fernet(session_key)
+                
                 encrypted_message= fernet.encrypt(message)
                 client.send(f'CHAT {private_chat_partner} {encrypted_message}'.encode('ascii'))
 
