@@ -24,9 +24,7 @@ def read_user_registry(file_path):
 userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
 
-def broadcast(message):
-    for client in sessionUsers:
-        client.send(message)
+private_chats = {}
 
 def getOnlineUsers(clientIdentity):
     onlineList = []
@@ -36,9 +34,18 @@ def getOnlineUsers(clientIdentity):
     serialized_list = json.dumps(onlineList).encode()
     return serialized_list
 
-from cryptography.fernet import Fernet
+def broadcast(message, sender):
+    for client in sessionUsers:
+        if client != sender:
+            client.send(message)
 
-chat_keys = {}  # dictionary to store chat keys
+def handle_private_chat(client, recipient):
+    while True:
+        try:
+            message = client.recv(1024)
+            private_chats[recipient].send(message)
+        except:
+            break
 
 def handle(client):
     while True:
@@ -47,31 +54,33 @@ def handle(client):
             stringMessage = message.decode()
             listMessage = stringMessage.split()
 
-            if listMessage[0] == "CHATWITH":  # if "CHATWITH" command is in the message
-                user_to_chat_with = listMessage[1]
-
-    # generate a symmetric key
-                key = Fernet.generate_key()
-                chat_keys[frozenset([client, onlineUsers.get(user_to_chat_with)])] = key
-                print({key})
-
-            elif listMessage[0] == "ONLINE":
+            if (listMessage[1] == "ONLINE"):
                 onlineList = getOnlineUsers(client)
                 client.send(onlineList)
-
+            elif (listMessage[1] == "INVITE"):
+                recipient = listMessage[2]
+                if recipient in onlineUsers:
+                    onlineUsers[recipient].send(f'INVITE {nicknames[sessionUsers.index(client)]}'.encode('ascii'))
+            elif (listMessage[1] == "ACCEPT"):
+                sender = listMessage[2]
+                if sender in onlineUsers:
+                    private_chats[client] = onlineUsers[sender]
+                    private_chats[onlineUsers[sender]] = client
+                    thread = threading.Thread(target=handle_private_chat, args=(client, onlineUsers[sender]))
+                    thread.start()
+                    thread = threading.Thread(target=handle_private_chat, args=(onlineUsers[sender], client))
+                    thread.start()
             else:
-                broadcast(message)
+                broadcast(message, client)
         except:
             index = sessionUsers.index(client)
             sessionUsers.remove(client)
             client.close()
             nickname = nicknames[index]
-            broadcast(f'{nickname} left the chat!'.encode('ascii'))
+            broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
             onlineUsers.pop(nickname)
             nicknames.remove(nickname)
             break
-
-
 
 def receive():
     while True:
@@ -95,7 +104,8 @@ def receive():
                 client.send(serialized_list)
 
                 sessionUsers.append(client)
-                broadcast(f'{nickname} joined the chat!'.encode('ascii'))
+                broadcast(f'{nickname} joined the chat!'.encode('ascii'), client) #Add client as sender
+                client.send('Connected to the server!\n\tIf you would like to invite, type "INVITE"'.encode('ascii'))
                 thread = threading.Thread(target=handle, args=(client,))
                 thread.start()
             else:
