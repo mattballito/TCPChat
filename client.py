@@ -2,8 +2,6 @@ import socket
 import threading
 import json
 import hashlib
-from cryptography.hazmat.primitives.asymmetric import rsa, dsa
-from cryptography.hazmat.primitives import serialization
 
 host = '127.0.0.1'
 port = 55555
@@ -14,8 +12,7 @@ client.connect((host, port))
 username = input("Enter your username: ")
 password = input("Enter your password: ")
 
-private_chat_active = False
-private_chat_partner = ''
+
 
 def receive():
     global private_chat_active, private_chat_partner
@@ -39,17 +36,9 @@ def receive():
                     else:
                         print("No other users are online at the moment.\n")
 
-            elif message.startswith('INVITE '):
+            elif message.startswith('INVITATION'):
                 inviter = message.split(' ')[1]
                 print(f'You have received an invitation from {inviter}!\nType "ACCEPT {inviter}" to accept the invitation.')
-
-
-
-            elif message == 'CHATEND':
-                print("Private chat ended. You can now communicate publicly.")
-                private_chat_active = False
-                private_chat_partner = ''
-
             else:
                 print(message)
 
@@ -63,24 +52,28 @@ def receive():
             break
 
 def write():
-    global private_chat_active, private_chat_partner
+    #global private_chat_active, private_chat_partner
     while True:
         message = input()
         if message.startswith('INVITE'):
-            recipient = message.split(' ')[1]
-            client.send(f'INVITE {recipient}'.encode('ascii'))
+            
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tINVITE <username>")
+            else:
+                recipient = message.split(' ')[1]
+                client.send(f'INVITE {recipient} {username}'.encode('ascii'))
+            
 
         elif message.startswith('ACCEPT'):
-            inviter = message.split(' ')[1]
-            client.send(f'ACCEPT {inviter}'.encode('ascii'))
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tACCEPT <username>")
+            else:
+                inviter = message.split(' ')[1]
+                client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
+        elif message.startswith('LEAVE'):
+            client.send(f'LEAVE'.encode('ascii'))
 
-        elif private_chat_active:
-            if message.startswith('ENDCHAT'):
-                client.send('ENDCHAT'.encode('ascii'))
-                private_chat_active = False
-                private_chat_partner = ''
-            elif message:
-                client.send(f'CHAT {private_chat_partner} {message}'.encode('ascii'))
+        
 
         else:
             client.send(message.encode('ascii'))
@@ -90,3 +83,4 @@ receive_thread.start()
 
 write_thread = threading.Thread(target=write)
 write_thread.start()
+
