@@ -17,7 +17,7 @@ username = input("Enter your username: ")
 password = input("Enter your password: ")
 
 private_chat_active = False
-session_key= ''
+session_key= b''
 
 private_keys =  {"user1":"privateKey1.pem" ,
     "user2": "privateKey2.pem",
@@ -70,10 +70,11 @@ def receive():
                 print(privateKeyFile)
                 privatekey= load_Key(privateKeyFile)
                 print(privatekey)
-                decrypted_sessionKey = decrypt_key(encrypted_session_key ,privatekey)
+                decrypted_sessionKey = rsa.decrypt(encrypted_session_key, privatekey)
                 print(decrypted_sessionKey)
                 private_chat_active = True
                 print('Invite accepted, session key received')
+                print(type(session_key))
             else:
                 print(message)
 
