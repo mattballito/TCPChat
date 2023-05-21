@@ -25,13 +25,16 @@ private_keys =  {"user1":"privateKey1.pem" ,
 }
 def load_Key(file):
     with open(file,'rb') as p:
-        publicKey = rsa.PublicKey.load_pkcs1(p.read())
-    return publicKey
-def decrypt(cipher, key):
+        privateKey = rsa.PrivateKey.load_pkcs1(p.read())
+    return privateKey
+
+def decrypt_key(cipher, key):
+    print("in decryption section")
     try:
         return rsa.decrypt(ciphertext, key)
     except:
         return False
+
 def receive():
     global private_chat_active, session_key
     while True:
@@ -67,7 +70,7 @@ def receive():
                 print(privateKeyFile)
                 privatekey= load_Key(privateKeyFile)
                 print(privatekey)
-                decrypted_sessionKey = decrypt(encrypted_session_key,privatekey)
+                decrypted_sessionKey = decrypt_key(encrypted_session_key ,privatekey)
                 print(decrypted_sessionKey)
                 private_chat_active = True
                 print('Invite accepted, session key received')
@@ -102,7 +105,15 @@ def write():
             else:
                 inviter = message.split(' ')[1]
                 client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
-
+        elif private_chat_active:
+            if message.startswith('ENDCHAT'):
+                client.send('ENDCHAT'.encode('ascii'))
+                private_chat_active = False
+                private_chat_partner = ''
+            elif message:
+                fernet = Fernet(session_key)
+                encrypted_message = fernet.encrypt(message.encode('utf-8'))  # Encode message to bytes
+                client.send(f'CHAT {private_chat_partner} '.encode('ascii') + encrypted_message)
         
 
         else:
