@@ -54,10 +54,10 @@ def create_session_key():
     return key
 
 def load_Key(file):
-    print("Load key reached")
     with open(file,'rb') as p:
         publicKey = rsa.PublicKey.load_pkcs1(p.read())
     return publicKey
+    
 def encrypt(message, key):
     return rsa.encrypt(message, key)
 
@@ -100,29 +100,28 @@ def handle(client):
                     session_key = create_session_key()
                     #get pub key file name
                     pubkeyfile= public_keys[originUsername]
-                    print("Key file:",pubkeyfile)
-                    #load the pub key
                     
+                    #load the pub key
                     pubKey = load_Key(pubkeyfile)
-                    print("pubKey:",pubKey)
+                    
                     #encrypt session key
                     encryptedSession_key = encrypt(session_key,pubKey)
-                    print("Encrypted session key:", encryptedSession_key)
-
+                    
+                    #send session key
                    # onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[originUsername].send(f'SESSIONKEY '.encode('ascii'))
                     onlineUsers[originUsername].send(encryptedSession_key)
 
                     #get pub key file name
                     pubkeyfile= public_keys[sender]
-                    print("Key file:",pubkeyfile)
-                    #load the pub key
                     
+                    #load the pub key
                     pubKey = load_Key(pubkeyfile)
-                    print("pubKey:",pubKey)
+                    
                     #encrypt session key
                     encryptedSession_key = encrypt(session_key,pubKey)
-                    print("Encrypted session key:", encryptedSession_key)
+                   
+                   #send session key
                    # onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[sender].send(f'SESSIONKEY '.encode('ascii'))
                     onlineUsers[sender].send(encryptedSession_key)
