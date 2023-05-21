@@ -27,11 +27,19 @@ private_keys =  {"user1":"privateKey1.pem" ,
     "user2": "privateKey2.pem",
     "user3": "privateKey3.pem"
 }
-def load_Key(file):
+public_keys = {
+    "user1" : "publicKey1.pem",
+    "user2" : "publicKey2.pem",
+    "user3" : "publicKey3.pem"
+}
+def load_private_Key(file):
     with open(file,'rb') as p:
         privateKey = rsa.PrivateKey.load_pkcs1(p.read())
     return privateKey
-
+def load_public_Key(file):
+    with open(file,'rb') as p:
+        publicKey = rsa.PublicKey.load_pkcs1(p.read())
+    return publicKey
 def decrypt_key(cipher, key):
     print("in decryption section")
     try:
@@ -75,7 +83,7 @@ def receive():
                 #get private key file
                 privateKeyFile = private_keys[username]
                 #load private key
-                privatekey= load_Key(privateKeyFile)
+                privatekey= load_private_Key(privateKeyFile)
                 #decrypt session key
                 decrypted_sessionKey = rsa.decrypt(encrypted_session_key, privatekey)
                 #save session key
@@ -92,12 +100,34 @@ def receive():
                     # validate signature
                     #display message
                     
-            
+                    print("made it to splitting chat message")
                     encrypted_message = message.split('CHAT ')[1].encode('ascii')
                     fernet = Fernet(session_key)
                     decrypted_message = fernet.decrypt(encrypted_message).decode('utf-8')
-                    print(f'{private_chat_partner}: {decrypted_message}')
 
+                    sigAlg = decrypted_message.split(' ')[0]
+                    print(sigAlg)
+                    originalMessage = decrypted_message.split(' ')[1]
+                    encryptedHash = decrypted_message.split(' ')[2]
+                    print("Encrypted Hash: ", encryptedHash)
+                    if(sigAlg == 'RSA'):
+                        #hash message to compare hashes
+                        hashing = hashlib.sha256(originalMessage.encode())
+                        messageHash = hashing.digest()
+                        print("Message hash:", messageHash)
+
+                        #decrypt signature
+                        publicKeyFile = public_keys[private_chat_partner]
+                        print(publicKeyFile)
+                        publickey= load_public_Key(publicKeyFile)
+                        decryptedSig = rsa.decrypt(encryptedHash, publicKey)
+                        print("Decrypted hash:",decryptedSig)
+                        if (decryptedSig == messageHash):
+                            print("Message Verified: ", originalMessage)
+                        else:
+                            print(f'{private_chat_partner}: {decrypted_message}')
+                    elif (sigALG == 'DSA'):
+                        pass
             else:
                 print(message)
 
@@ -145,12 +175,30 @@ def write():
                     #build message
                     pass
                 elif signatureAlgorithm == 'RSA':
+                    print("made it to RSA encryption")
                     #do rsa ds
-                    #build message
-                    pass
-                fernet = Fernet(session_key)
-                encrypted_message = fernet.encrypt(message.encode('utf-8'))  # Encode message to bytes
-                client.send(f'CHAT '.encode('ascii') + encrypted_message)
+                    # get hash digest of message
+                    hashed = hashlib.sha256(message.encode())
+                    hashedmessage = hashed.digest()
+                    print(hashedmessage)
+                    #get private key file
+                    privateKeyFile = private_keys[username]
+                    #load key
+                    privatekey= load_private_Key(privateKeyFile)
+                    #encrypt using the private key
+                    signature = rsa.encrypt(hashedmessage, privatekey)
+                    print(signature)
+                   
+                    #encrypt with session key
+                    fernet = Fernet(session_key)
+                    encrypted_message = fernet.encrypt(f'{signatureAlgorithm} {message} {signature}'.encode('utf-8'))
+
+                    #send rsa message
+                    client.send(f'CHAT '.encode('ascii') + encrypted_message)
+                else: 
+                    fernet = Fernet(session_key)
+                    encrypted_message = fernet.encrypt(message.encode('utf-8'))  # Encode message to bytes
+                    client.send(f'CHAT '.encode('ascii') + encrypted_message)
         
 
         else:
