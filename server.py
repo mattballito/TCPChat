@@ -4,6 +4,7 @@ import json
 import hashlib
 import cryptography
 from cryptography.fernet import Fernet
+
 host = "127.0.0.1"
 port = 55555
 
