@@ -4,6 +4,8 @@ import json
 import hashlib
 import cryptography
 from cryptography.fernet import Fernet
+import rsa
+
 
 host = '127.0.0.1'
 port = 55555
@@ -15,11 +17,23 @@ username = input("Enter your username: ")
 password = input("Enter your password: ")
 
 private_chat_active = False
-private_chat_partner = ''
-session_key=''
+session_key= ''
 
+private_keys =  {"user1":"privateKey1.pem" ,
+    "user2": "privateKey2.pem",
+    "user3": "privateKey3.pem"
+}
+def load_Key(file):
+    with open(file,'rb') as p:
+        publicKey = rsa.PublicKey.load_pkcs1(p.read())
+    return publicKey
+def decrypt(cipher, key):
+    try:
+        return rsa.decrypt(ciphertext, key)
+    except:
+        return False
 def receive():
-    global private_chat_active, private_chat_partner,session_key
+    global private_chat_active, session_key
     while True:
         try:
             message = client.recv(1024).decode('ascii')
@@ -43,24 +57,20 @@ def receive():
             elif message.startswith('INVITATION'):
                 inviter = message.split(' ')[1]
                 print(f'You have received an invitation from {inviter}!\nType "ACCEPT {inviter}" to accept the invitation.')
-            
-            #checks a session key is being distributed
             elif message.startswith('SESSIONKEY '):
+                print("session key message recieved")
+                print(username)
                 #open to recieve of session key
-                session_key = client.recv(1024)
+                encrypted_session_key = client.recv(1024)
+                print(encrypted_session_key)
+                privateKeyFile = private_keys[username]
+                print(privateKeyFile)
+                privatekey= load_Key(privateKeyFile)
+                print(privatekey)
+                decrypted_sessionKey = decrypt(encrypted_session_key,privatekey)
+                print(decrypted_sessionKey)
                 private_chat_active = True
                 print('Invite accepted, session key received')
-            
-            elif message.startswith('CHAT '):
-                #checks a secure chat is active
-                if private_chat_active:
-                    #gets encrypted message 
-                    encrypted_message = message.split(' ', 2)[2].encode('ascii')
-                    fernet = Fernet(session_key)
-                    #decrypts encrypted message
-                    decrypted_message = fernet.decrypt(encrypted_message).decode('utf-8')
-                    #displays decrypted message
-                    print(f'{decrypted_message}')
             else:
                 print(message)
 
@@ -74,30 +84,27 @@ def receive():
             break
 
 def write():
-    global private_chat_active, private_chat_partner, session_key
+    global private_chat_active, session_key
     while True:
         message = input()
         if message.startswith('INVITE'):
-            recipient = message.split(' ')[1]
-            client.send(f'INVITE {recipient} {username}'.encode('ascii'))
+            
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tINVITE <username>")
+            else:
+                recipient = message.split(' ')[1]
+                client.send(f'INVITE {recipient} {username}'.encode('ascii'))
+            
 
         elif message.startswith('ACCEPT'):
-            inviter = message.split(' ')[1]
-            client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
+            if (len(message.split(' ')) < 2):
+                print("Invalid input. Please enter in the followng format:\n\tACCEPT <username>")
+            else:
+                inviter = message.split(' ')[1]
+                client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
 
-        #for message encryption with session key
-        elif private_chat_active:
-            #checks if chat is ending
-            if message.startswith('ENDCHAT'):
-                client.send('ENDCHAT'.encode('ascii'))
-                private_chat_active = False
-                private_chat_partner = ''
-            #encrypts and sends encrypted message
-            elif message:
-                fernet = Fernet(session_key)
-                encrypted_message = fernet.encrypt(message.encode('utf-8'))  # Encode message to bytes
-                client.send(f'CHAT {private_chat_partner} '.encode('ascii') + encrypted_message)
         
+
         else:
             client.send(message.encode('ascii'))
 

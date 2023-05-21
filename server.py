@@ -4,6 +4,7 @@ import json
 import hashlib
 import cryptography
 from cryptography.fernet import Fernet
+import rsa
 
 host = "127.0.0.1"
 port = 55555
@@ -14,6 +15,12 @@ server.listen()
 
 sessionUsers = []
 nicknames = []
+
+public_keys = {
+    "user1" : "publicKey1.pem",
+    "user2" : "publicKey2.pem",
+    "user3" : "publicKey3.pem"
+}
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -46,6 +53,13 @@ def create_session_key():
     print("session key for private chat generated:", key)
     return key
 
+def load_Key(file):
+    print("Load key reached")
+    with open(file,'rb') as p:
+        publicKey = rsa.PublicKey.load_pkcs1(p.read())
+    return publicKey
+def encrypt(message, key):
+    return rsa.encrypt(message, key)
 
 def handle(client):
     while True:
@@ -84,13 +98,34 @@ def handle(client):
                         sessionUsers.append(onlineUsers[sender]) # add sender to the server
 
                     session_key = create_session_key()
+                    #get pub key file name
+                    pubkeyfile= public_keys[originUsername]
+                    print("Key file:",pubkeyfile)
+                    #load the pub key
+                    
+                    pubKey = load_Key(pubkeyfile)
+                    print("pubKey:",pubKey)
+                    #encrypt session key
+                    encryptedSession_key = encrypt(session_key,pubKey)
+                    print("Encrypted session key:", encryptedSession_key)
 
                    # onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[originUsername].send(f'SESSIONKEY '.encode('ascii'))
-                    onlineUsers[originUsername].send(session_key)
+                    onlineUsers[originUsername].send(encryptedSession_key)
+
+                    #get pub key file name
+                    pubkeyfile= public_keys[sender]
+                    print("Key file:",pubkeyfile)
+                    #load the pub key
+                    
+                    pubKey = load_Key(pubkeyfile)
+                    print("pubKey:",pubKey)
+                    #encrypt session key
+                    encryptedSession_key = encrypt(session_key,pubKey)
+                    print("Encrypted session key:", encryptedSession_key)
                    # onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[sender].send(f'SESSIONKEY '.encode('ascii'))
-                    onlineUsers[sender].send(session_key)
+                    onlineUsers[sender].send(encryptedSession_key)
                 else:
                     client.send("Invalid ACCEPT request. One of the parties is not online.".encode('ascii'))
             else:
