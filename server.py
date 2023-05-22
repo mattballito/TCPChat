@@ -17,10 +17,11 @@ sessionUsers = []
 nicknames = []
 
 public_keys = {
-    "user1" : "publicKey1.pem",
-    "user2" : "publicKey2.pem",
-    "user3" : "publicKey3.pem"
+    "user1": "publicKey1.pem",
+    "user2": "publicKey2.pem",
+    "user3": "publicKey3.pem"
 }
+
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -30,9 +31,9 @@ def read_user_registry(file_path):
             user_registry[user] = hashed_password
     return user_registry
 
+
 userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
-
 
 
 def get_online_users(client_identity):
@@ -43,23 +44,28 @@ def get_online_users(client_identity):
     serialized_list = json.dumps(online_list).encode()
     return serialized_list
 
+
 def broadcast(message, sender):
     for client in sessionUsers:
         if client != sender:
             client.send(message)
 
+
 def create_session_key():
-    key=Fernet.generate_key()
+    key = Fernet.generate_key()
     print("session key for private chat generated:", key)
     return key
 
+
 def load_Key(file):
-    with open(file,'rb') as p:
+    with open(file, 'rb') as p:
         publicKey = rsa.PublicKey.load_pkcs1(p.read())
     return publicKey
-    
+
+
 def encrypt(message, key):
     return rsa.encrypt(message, key)
+
 
 def handle(client):
     while True:
@@ -82,47 +88,46 @@ def handle(client):
                 sender = list_message[1]
                 originUsername = list_message[2]
 
-
-
                 if originUsername in onlineUsers and sender in onlineUsers:
                     """ Visualization for onlineUsers dictionary:
                         onlineUsers["user1"] = <socket for user1 etc etc>
                         onlineUsers["user1"] = <socket for user2 etc etc>
                     """
-                    key_for_originUsername = next((key for key, value in onlineUsers.items() if value == originUsername), None) #get the client Handle based on username
-                    key_for_sender = next((key for key, value in onlineUsers.items() if value == sender), None) # get the client Handle based on username
+                    key_for_originUsername = next((key for key, value in onlineUsers.items() if value == originUsername),
+                                                  None)  # get the client Handle based on username
+                    key_for_sender = next((key for key, value in onlineUsers.items() if value == sender), None)  # get the client Handle based on username
 
                     if key_for_originUsername not in sessionUsers:
-                        sessionUsers.append(onlineUsers[originUsername]) # add recipient to the session
+                        sessionUsers.append(onlineUsers[originUsername])  # add recipient to the session
                     if key_for_sender not in sessionUsers:
-                        sessionUsers.append(onlineUsers[sender]) # add sender to the server
+                        sessionUsers.append(onlineUsers[sender])  # add sender to the server
 
                     session_key = create_session_key()
-                    #get pub key file name
-                    pubkeyfile= public_keys[originUsername]
-                    
-                    #load the pub key
+                    # get pub key file name
+                    pubkeyfile = public_keys[originUsername]
+
+                    # load the pub key
                     pubKey = load_Key(pubkeyfile)
-                    
-                    #encrypt session key
-                    encryptedSession_key = encrypt(session_key,pubKey)
-                    
-                    #send session key
-                   # onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+
+                    # encrypt session key
+                    encryptedSession_key = encrypt(session_key, pubKey)
+
+                    # send session key
+                    # onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[originUsername].send(f'SESSIONKEY '.encode('ascii'))
                     onlineUsers[originUsername].send(encryptedSession_key)
 
-                    #get pub key file name
-                    pubkeyfile= public_keys[sender]
-                    
-                    #load the pub key
+                    # get pub key file name
+                    pubkeyfile = public_keys[sender]
+
+                    # load the pub key
                     pubKey = load_Key(pubkeyfile)
-                    
-                    #encrypt session key
-                    encryptedSession_key = encrypt(session_key,pubKey)
-                   
-                   #send session key
-                   # onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
+
+                    # encrypt session key
+                    encryptedSession_key = encrypt(session_key, pubKey)
+
+                    # send session key
+                    # onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!'.encode('ascii'))
                     onlineUsers[sender].send(f'SESSIONKEY '.encode('ascii'))
                     onlineUsers[sender].send(encryptedSession_key)
                 else:
@@ -131,7 +136,7 @@ def handle(client):
                 broadcast(message, client)
 
         except:
-            if (client in sessionUsers):
+            if client in sessionUsers:
                 index = sessionUsers.index(client)
                 sessionUsers.remove(client)
                 client.close()
@@ -164,8 +169,8 @@ def receive():
             serialized_list = get_online_users(client)
             client.send(serialized_list)
 
-            #sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
-            #broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
+            # sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
+            # broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
             client.send('Connected to the server!\n\tIf you would like to invite, type "INVITE"'.encode('ascii'))
 
             thread = threading.Thread(target=handle, args=(client,))
