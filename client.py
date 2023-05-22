@@ -9,6 +9,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
+from threading import Lock
+
 
 host = '127.0.0.1'
 port = 55555
@@ -127,6 +129,8 @@ def encrypt_with_private_key(plaintext, priv_key):
 
 
 sessionSet = False
+sessionSetLock = Lock()
+
 
 def receive():
     while True:
@@ -174,12 +178,12 @@ def receive():
                 #print("The type of it: ", type(decrypted_message.encode('ascii')))
 
                 global sessionSet
-
-                if (sessionSet == False):
-                    global session_key # allows out of scope access for other methods
-                    session_key = decrypted_message.encode('ascii') # causes error because of referenced  before assignment 
-                    #print(" Clients session key!!!\n\t", session_key)
-                    sessionSet = True
+                with sessionSetLock:
+                    if (sessionSet == False):
+                        global session_key # allows out of scope access for other methods
+                        session_key = decrypted_message.encode('ascii') # causes error because of referenced  before assignment 
+                        #print(" Clients session key!!!\n\t", session_key)
+                        sessionSet = True
 
 
             else:

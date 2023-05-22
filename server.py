@@ -251,16 +251,20 @@ def handle(client):
 
                         #print("SERVER, your key: ", session_key)
                         #print(type(session_key))
-                        
-                        ciphertext = encrypt_with_public_key(session_key,public_keys_pem[originUsername]) # CREATE ciphertext for the guy accepting the request
-                        onlineUsers[originUsername].send('CIPHER'.encode('ascii'))
-                        encoded_ciphertext = base64.b64encode(ciphertext)
-                        onlineUsers[originUsername].send(encoded_ciphertext) # send it to him
 
-                        ciphertext = encrypt_with_public_key(session_key,public_keys_pem[sender]) # CREATE ciphertext for the guy initiating the request
-                        onlineUsers[sender].send('CIPHER'.encode('ascii'))
-                        encoded_ciphertext = base64.b64encode(ciphertext)
-                        onlineUsers[sender].send(encoded_ciphertext) #send it to him
+                        try:
+                        
+                            ciphertext = encrypt_with_public_key(session_key,public_keys_pem[originUsername]) # CREATE ciphertext for the guy accepting the request
+                            onlineUsers[originUsername].send('CIPHER'.encode('ascii'))
+                            encoded_ciphertext = base64.b64encode(ciphertext)
+                            onlineUsers[originUsername].send(encoded_ciphertext) # send it to him
+
+                            ciphertext = encrypt_with_public_key(session_key,public_keys_pem[sender]) # CREATE ciphertext for the guy initiating the request
+                            onlineUsers[sender].send('CIPHER'.encode('ascii'))
+                            encoded_ciphertext = base64.b64encode(ciphertext)
+                            onlineUsers[sender].send(encoded_ciphertext) #send it to him
+                        except Exception as e:
+                            print("the error happens here!!!!!!", e)
 
                     
                 else:
