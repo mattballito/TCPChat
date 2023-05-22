@@ -76,9 +76,9 @@ def decrypt_with_private_key(ciphertext, priv_key):
     return decrypted_message
 
 
+sessionSet = False
 
 def receive():
-    sessionSet = False
     while True:
         try:
             message = client.recv(1024).decode('ascii')
@@ -114,6 +114,8 @@ def receive():
                 decrypted_message = decrypt_with_private_key(ciphertext, private_key)
                 #print(f'Client has decrypted it as: {decrypted_message}')
                 #print("The type of it: ", type(decrypted_message.encode('ascii')))
+
+                global sessionSet
 
                 if (sessionSet == False):
                     global session_key # allows out of scope access for other methods
