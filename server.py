@@ -3,6 +3,15 @@ import threading
 import json
 import hashlib
 from collections import defaultdict
+import base64
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.backends import default_backend
+import secrets
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
+
 
 host = "127.0.0.1"
 port = 55555
@@ -14,6 +23,10 @@ server.listen()
 sessionUsers = []
 nicknames = []
 pendingRequests = defaultdict(bool) # tracks users that have sent chat requests
+public_keys = defaultdict(bool)
+
+activeSessionKey = False
+session_key = None
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -26,7 +39,11 @@ def read_user_registry(file_path):
 userRegistry = read_user_registry('hashed_passwords.txt')
 onlineUsers = {}
 
-
+def get_username_of_client(client_identity):
+    for username, value in onlineUsers.items():
+        if value is client_identity:
+            return username
+    return None  # Return None if no match is found
 
 def get_online_users(client_identity):
     online_list = []
@@ -41,6 +58,24 @@ def broadcast(message, sender):
         if client != sender:
             client.send(message)
 
+def encrypt_with_public_key(message, pub_key):
+    # Convert the received public key string to bytes
+    received_public_key_bytes = pub_key.encode('ascii')
+    byte_message = message.encode('ascii')
+    try:
+        public_key = serialization.load_pem_public_key(received_public_key_bytes, backend=default_backend())
+        # Encrypt the message
+        encrypted_message = public_key.encrypt(
+            byte_message,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+    except Exception as e:
+        print(e)
+    return encrypted_message
 
 
 def handle(client):
@@ -72,11 +107,18 @@ def handle(client):
                     client.send("You have been removed from the session!".encode('ascii'))
                 else:
                     client.send("You aren't in the session!".encode('ascii'))
+                    
 
 
             elif list_message[0] == 'ACCEPT':
                 sender = list_message[1] # the guy who initiated the request
                 originUsername = list_message[2] # the guy who's accepting it
+
+                #if (activeSessionKey == False):
+                    #session_key = generate_session_key(16)
+                    #activeSessionKey = True
+                    #print
+                
 
                 if sender not in pendingRequests:
                     client.send(f'{sender} has not initiated a request with you!'.encode('ascii'))
@@ -107,9 +149,26 @@ def handle(client):
                                 break  # Break if the client already exists in sessionUsers
                         else:
                             sessionUsers.append(onlineUsers[sender])  # Add sender to the session
+                    
+                        testMessage = session_key
+                        print ("This is your session key", testMessage)
+                    
+                        testMessage = "hello world!" # currently just sending a ordinary message. (Will need to send a session key and send it to the two parties after encrypting w/ their public keys)
+                        #onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
+                        #onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
+                        
+                        
+                        ciphertext = encrypt_with_public_key(testMessage,public_keys[originUsername]) # CREATE ciphertext for the guy accepting the request
+                        onlineUsers[originUsername].send('CIPHER'.encode('ascii'))
+                        encoded_ciphertext = base64.b64encode(ciphertext)
+                        onlineUsers[originUsername].send(encoded_ciphertext) # send it to him
 
-                    onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
-                    onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
+                        ciphertext = encrypt_with_public_key(testMessage,public_keys[sender]) # CREATE ciphertext for the guy initiating the request
+                        onlineUsers[sender].send('CIPHER'.encode('ascii'))
+                        encoded_ciphertext = base64.b64encode(ciphertext)
+                        onlineUsers[sender].send(encoded_ciphertext) #send it to him
+
+                    
                 else:
                     client.send("Invalid ACCEPT request. One of the parties is not online, or they haven't sent you a request.".encode('ascii'))
             else:
@@ -118,13 +177,22 @@ def handle(client):
 
         except:
             if (client in sessionUsers):
-                index = sessionUsers.index(client)
-                sessionUsers.remove(client)
-                client.close()
-                nickname = nicknames[index]
+
+                for user in sessionUsers.copy(): #remove from session
+                    if user == client:
+                        sessionUsers.remove(user)
+                        break
+
+                nickname = get_username_of_client(client)
+                print("The nickname is...",nickname)
+                #for username, value in public_keys.items():
+                    #print(f'FIRST is the key:{username} and it value is:{value}\n')
+                public_keys.pop(nickname)
                 broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
                 onlineUsers.pop(nickname)
                 nicknames.remove(nickname)
+                client.close()
+
             else:
                 print("A user has disconnected!")
             break
@@ -146,9 +214,18 @@ def receive():
 
             client.send('USERLIST'.encode('ascii'))
             client.send('LISTDATA'.encode('ascii'))
+            
 
             serialized_list = get_online_users(client)
             client.send(serialized_list)
+
+            client.send('REQKEY'.encode('ascii'))
+            client_pub_key = client.recv(1024).decode('ascii')
+
+            number = "".join(filter(str.isdigit, nickname)) # 1, 2 , or 3
+            print(f'Storing user{number} public key')
+            
+            public_keys[nickname] = client_pub_key
 
             #sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
             #broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
