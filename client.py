@@ -43,7 +43,7 @@ def load_public_Key(file):
 def decrypt_key(cipher, key):
     print("in decryption section")
     try:
-        return rsa.decrypt(ciphertext, key)
+        return rsa.decrypt(cipher, key)
     except:
         return False
 
@@ -108,24 +108,21 @@ def receive():
                     sigAlg = decrypted_message.split(' ')[0]
                     print(sigAlg)
                     originalMessage = decrypted_message.split(' ')[1]
-                    encryptedHash = decrypted_message.split(' ')[2]
-                    print("Encrypted Hash: ", encryptedHash)
+                    print(originalMessage)
+                    signature = decrypted_message.split(' ')[2]
+                    print(signature)
+                   
                     if(sigAlg == 'RSA'):
-                        #hash message to compare hashes
-                        hashing = hashlib.sha256(originalMessage.encode())
-                        messageHash = hashing.digest()
-                        print("Message hash:", messageHash)
-
+                    
                         #decrypt signature
                         publicKeyFile = public_keys[private_chat_partner]
                         print(publicKeyFile)
-                        publickey= load_public_Key(publicKeyFile)
-                        decryptedSig = rsa.decrypt(encryptedHash, publicKey)
-                        print("Decrypted hash:",decryptedSig)
-                        if (decryptedSig == messageHash):
-                            print("Message Verified: ", originalMessage)
-                        else:
-                            print(f'{private_chat_partner}: {decrypted_message}')
+                        publicKey= load_public_Key(publicKeyFile)
+                        print("Public key:" ,publicKey)
+                        print(rsa.verify(originalMessage.encode(), signature, publicKey))
+                        
+                     
+                        print(f'{private_chat_partner}: {originalMessage}')
                     elif (sigALG == 'DSA'):
                         pass
             else:
@@ -177,16 +174,13 @@ def write():
                 elif signatureAlgorithm == 'RSA':
                     print("made it to RSA encryption")
                     #do rsa ds
-                    # get hash digest of message
-                    hashed = hashlib.sha256(message.encode())
-                    hashedmessage = hashed.digest()
-                    print(hashedmessage)
+                    
                     #get private key file
                     privateKeyFile = private_keys[username]
                     #load key
                     privatekey= load_private_Key(privateKeyFile)
                     #encrypt using the private key
-                    signature = rsa.encrypt(hashedmessage, privatekey)
+                    signature = rsa.sign(message.encode(), privatekey, "SHA-256")
                     print(signature)
                    
                     #encrypt with session key
