@@ -50,7 +50,7 @@ def decrypt_key(cipher, key):
 def receive():
     global private_chat_active, session_key, private_chat_partner
     while True:
-        try:
+        #try:
             message = client.recv(1024).decode('ascii')
 
             if message == 'NICK':
@@ -119,9 +119,9 @@ def receive():
                         print(publicKeyFile)
                         publicKey= load_public_Key(publicKeyFile)
                         print("Public key:" ,publicKey)
+
                         print(rsa.verify(originalMessage.encode(), signature, publicKey))
                         
-                     
                         print(f'{private_chat_partner}: {originalMessage}')
                     elif (sigALG == 'DSA'):
                         pass
@@ -132,10 +132,10 @@ def receive():
                 print("Invalid login. Please restart the client!")
                 client.close()
 
-        except:
-            print("An error occurred!")
-            client.close()
-            break
+        #except:
+            #print("An error occurred!")
+            #client.close()
+            #break
 
 def write():
     global private_chat_active, session_key, private_chat_partner
