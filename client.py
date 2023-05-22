@@ -56,8 +56,10 @@ private_key_pem = private_key.private_bytes(
 
 username = input("Enter your username: ")
 password = input("Enter your password: ")
+mode = input("Select 'R' for RSA, otherwise DSA:")
 
 session_key = "1".encode('ascii')
+serverHasRSAPublicKey = False
 
 def decrypt_with_private_key(ciphertext, priv_key):
     try:
@@ -74,6 +76,23 @@ def decrypt_with_private_key(ciphertext, priv_key):
         print("Decryption error:", e)
         decrypted_message = None
     return decrypted_message
+
+
+def encrypt_with_private_key(plaintext, priv_key):
+    try:
+        encrypted_message = priv_key.encrypt(
+            plaintext.encode('ascii'),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+        encrypted_message = base64.b64encode(encrypted_message).decode('ascii')
+    except Exception as e:
+        print("Encryption error:", e)
+        encrypted_message = None
+    return encrypted_message
 
 
 sessionSet = False
@@ -102,6 +121,8 @@ def receive():
                     message = client.recv(1024).decode('ascii')
                     if message == 'REQKEY':
                         client.send(public_key_pem)
+                        global serverHasRSAPublicKey
+                        serverHasRSAPublicKey = True
                     
 
             elif message.startswith('INVITATION'):
@@ -150,6 +171,10 @@ def write():
     
     while True:
         message = input()
+        if mode == 'R':
+            print("(RSA Mode)")
+        else:
+            print("(DSA Mode)")
         if message.startswith('INVITE'):
             # Print the generated keys
             #print("\nPrivate Key:\n", private_key_pem.decode())
@@ -172,6 +197,24 @@ def write():
             client.send(f'LEAVE'.encode('ascii'))
         elif message.startswith('ONLINE'):
             client.send(f'ONLINE'.encode('ascii'))
+        elif message.startswith('DIGSIG') and mode == "R":
+            # RSA Dig Sig
+            if (serverHasRSAPublicKey):
+                # Encrypt the message using the RSA private key
+                signed_message = private_key.sign(
+                    'DIGSIG(R)'.encode('ascii'),
+                    padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                    ),
+                    hashes.SHA256()
+                )
+                msg = 'DIGSIG(R)'.encode('ascii')
+                client.send(msg)
+                client.send(signed_message)
+                
+            else:
+                print("server doesn't have the RSA pub. key")
 
         
 
@@ -188,4 +231,5 @@ receive_thread.start()
 
 write_thread = threading.Thread(target=write)
 write_thread.start()
+
 

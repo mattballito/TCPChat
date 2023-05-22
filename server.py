@@ -21,8 +21,7 @@ server.listen()
 sessionUsers = []
 nicknames = []
 pendingRequests = defaultdict(bool) # tracks users that have sent chat requests
-public_keys = defaultdict(bool)
-
+public_keys_pem = defaultdict(bool)
 
 
 def read_user_registry(file_path):
@@ -74,6 +73,22 @@ def encrypt_with_public_key(message, pub_key):
         print(e)
     return encrypted_message
 
+def verify_signature(signature, message, public_key): # RSA
+    try:
+        public_key.verify(
+            signature,
+            message,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return True
+    except Exception as e:
+        print("Signature verification failed:", e)
+        return False
+
 def generate_symmetric_key():
     # Generate a random key
     key = Fernet.generate_key()
@@ -111,6 +126,28 @@ def handle(client):
             if list_message[0] == 'ONLINE':
                 online_list = get_online_users(client)
                 client.send(online_list)
+            elif list_message[0] == 'DIGSIG(R)':
+                signedmsg = client.recv(1024)
+                #print(signedmsg)
+                try:
+                    received_public_key = serialization.load_pem_public_key(
+                        public_keys_pem[get_username_of_client(client)].encode('ascii'),
+                        backend=default_backend()
+                    )
+                    received_public_key.verify(
+                        signedmsg,
+                        'DIGSIG(R)'.encode('ascii'),
+                        padding.PSS(
+                            mgf=padding.MGF1(hashes.SHA256()),
+                            salt_length=padding.PSS.MAX_LENGTH
+                        ),
+                        hashes.SHA256()
+                    )
+                    print("Signature is valid.")
+                    client.send("Signature is valid!".encode('ascii'))
+                except Exception as e:
+                    print("Signature is invalid! ", e)
+                    client.send("Signature not valid".encode('ascii'))
 
             elif list_message[0] == 'INVITE':
                 recipient = list_message[1]
@@ -195,12 +232,12 @@ def handle(client):
                         #print("SERVER, your key: ", session_key)
                         #print(type(session_key))
                         
-                        ciphertext = encrypt_with_public_key(session_key,public_keys[originUsername]) # CREATE ciphertext for the guy accepting the request
+                        ciphertext = encrypt_with_public_key(session_key,public_keys_pem[originUsername]) # CREATE ciphertext for the guy accepting the request
                         onlineUsers[originUsername].send('CIPHER'.encode('ascii'))
                         encoded_ciphertext = base64.b64encode(ciphertext)
                         onlineUsers[originUsername].send(encoded_ciphertext) # send it to him
 
-                        ciphertext = encrypt_with_public_key(session_key,public_keys[sender]) # CREATE ciphertext for the guy initiating the request
+                        ciphertext = encrypt_with_public_key(session_key,public_keys_pem[sender]) # CREATE ciphertext for the guy initiating the request
                         onlineUsers[sender].send('CIPHER'.encode('ascii'))
                         encoded_ciphertext = base64.b64encode(ciphertext)
                         onlineUsers[sender].send(encoded_ciphertext) #send it to him
@@ -224,7 +261,7 @@ def handle(client):
                 print("The nickname is...",nickname)
                 #for username, value in public_keys.items():
                     #print(f'FIRST is the key:{username} and it value is:{value}\n')
-                public_keys.pop(nickname)
+                public_keys_pem.pop(nickname)
                 broadcast(f'{nickname} left the chat!'.encode('ascii'), None)
                 onlineUsers.pop(nickname)
                 nicknames.remove(nickname)
@@ -257,12 +294,12 @@ def receive():
             client.send(serialized_list)
 
             client.send('REQKEY'.encode('ascii'))
-            client_pub_key = client.recv(1024).decode('ascii')
+            client_pub_pem = client.recv(1024).decode('ascii') # for key distro
 
             number = "".join(filter(str.isdigit, nickname)) # 1, 2 , or 3
             print(f'Storing user{number} public key')
             
-            public_keys[nickname] = client_pub_key
+            public_keys_pem[nickname] = client_pub_pem
 
             #sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
             #broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)
