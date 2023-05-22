@@ -8,12 +8,29 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
 
 host = '127.0.0.1'
 port = 55555
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((host, port))
+
+def encrypt_with_fernet(key, plaintext):
+    # Create a Fernet cipher with the key
+    cipher = Fernet(key)
+
+    # Encrypt the plaintext
+    ciphertext = cipher.encrypt(plaintext)
+    return ciphertext
+
+def decrypt_with_fernet(key, ciphertext):
+    # Create a Fernet cipher with the key
+    cipher = Fernet(key)
+
+    # Decrypt the ciphertext
+    plaintext = cipher.decrypt(ciphertext)
+    return plaintext
 
 # Generate RSA key pair
 private_key = rsa.generate_private_key(
@@ -36,9 +53,11 @@ private_key_pem = private_key.private_bytes(
 )
 
 
+
 username = input("Enter your username: ")
 password = input("Enter your password: ")
 
+session_key = "1".encode('ascii')
 
 def decrypt_with_private_key(ciphertext, priv_key):
     try:
@@ -59,6 +78,7 @@ def decrypt_with_private_key(ciphertext, priv_key):
 
 
 def receive():
+    sessionSet = False
     while True:
         try:
             message = client.recv(1024).decode('ascii')
@@ -90,13 +110,27 @@ def receive():
             elif message.startswith('CIPHER'):
                 encoded_ciphertext = client.recv(1024)
                 ciphertext = base64.b64decode(encoded_ciphertext)
-                print("Got ciphertext from Server:\n\t", ciphertext)
+                #print("Got ciphertext from Server:\n\t", ciphertext)
                 decrypted_message = decrypt_with_private_key(ciphertext, private_key)
-                print(f'Client has decrypted it as: {decrypted_message}')
+                #print(f'Client has decrypted it as: {decrypted_message}')
+                #print("The type of it: ", type(decrypted_message.encode('ascii')))
+
+                if (sessionSet == False):
+                    global session_key # allows out of scope access for other methods
+                    session_key = decrypted_message.encode('ascii') # causes error because of referenced  before assignment 
+                    #print(" Clients session key!!!\n\t", session_key)
+                    sessionSet = True
 
 
             else:
-                print(message)
+                print(f'{message}')
+                if (len(message)>50):
+                    Ci = message
+                    if (sessionSet):
+                        Pi = decrypt_with_fernet(session_key,Ci)
+                        print(f'Plaintext: {Pi.decode()}')
+                
+                    
 
             if message == 'RESTART':
                 print("Invalid login. Please restart the client!")
@@ -111,6 +145,7 @@ def receive():
 
 def write():
     #global private_chat_active, private_chat_partner
+    
     while True:
         message = input()
         if message.startswith('INVITE'):
@@ -137,7 +172,9 @@ def write():
         
 
         else:
-            client.send(message.encode('ascii'))
+            encode_text = message.encode('ascii')
+            Ci = encrypt_with_fernet(session_key,encode_text)
+            client.send(Ci)
 
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()

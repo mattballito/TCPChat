@@ -7,9 +7,7 @@ import base64
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
-import secrets
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
 
 
 
@@ -25,8 +23,7 @@ nicknames = []
 pendingRequests = defaultdict(bool) # tracks users that have sent chat requests
 public_keys = defaultdict(bool)
 
-activeSessionKey = False
-session_key = None
+
 
 def read_user_registry(file_path):
     user_registry = {}
@@ -61,7 +58,7 @@ def broadcast(message, sender):
 def encrypt_with_public_key(message, pub_key):
     # Convert the received public key string to bytes
     received_public_key_bytes = pub_key.encode('ascii')
-    byte_message = message.encode('ascii')
+    byte_message = message
     try:
         public_key = serialization.load_pem_public_key(received_public_key_bytes, backend=default_backend())
         # Encrypt the message
@@ -76,6 +73,29 @@ def encrypt_with_public_key(message, pub_key):
     except Exception as e:
         print(e)
     return encrypted_message
+
+def generate_symmetric_key():
+    # Generate a random key
+    key = Fernet.generate_key()
+    return key
+
+def encrypt_with_fernet(key, plaintext):
+    # Create a Fernet cipher with the key
+    cipher = Fernet(key)
+
+    # Encrypt the plaintext
+    ciphertext = cipher.encrypt(plaintext)
+    return ciphertext
+
+def decrypt_with_fernet(key, ciphertext):
+    # Create a Fernet cipher with the key
+    cipher = Fernet(key)
+
+    # Decrypt the ciphertext
+    plaintext = cipher.decrypt(ciphertext)
+    return plaintext
+
+
 
 
 def handle(client):
@@ -104,7 +124,7 @@ def handle(client):
                     for c in sessionUsers_copy:
                         if c is client:
                             sessionUsers.remove(c)  # Remove the client using identity comparison
-                    client.send("You have been removed from the session!".encode('ascii'))
+                    client.send("Removed from session!".encode('ascii'))
                 else:
                     client.send("You aren't in the session!".encode('ascii'))
                     
@@ -114,11 +134,10 @@ def handle(client):
                 sender = list_message[1] # the guy who initiated the request
                 originUsername = list_message[2] # the guy who's accepting it
 
-                #if (activeSessionKey == False):
-                    #session_key = generate_session_key(16)
-                    #activeSessionKey = True
-                    #print
                 
+                    
+                session_key = None
+                sessionKeyNotActive = True
 
                 if sender not in pendingRequests:
                     client.send(f'{sender} has not initiated a request with you!'.encode('ascii'))
@@ -150,20 +169,36 @@ def handle(client):
                         else:
                             sessionUsers.append(onlineUsers[sender])  # Add sender to the session
                     
-                        testMessage = session_key
-                        print ("This is your session key", testMessage)
-                    
-                        testMessage = "hello world!" # currently just sending a ordinary message. (Will need to send a session key and send it to the two parties after encrypting w/ their public keys)
-                        #onlineUsers[originUsername].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
-                        #onlineUsers[sender].send(f'{sender}(the sender) and {originUsername}(the recipient) are now in session!\n\tType LEAVE to exit'.encode('ascii'))
                         
+
                         
-                        ciphertext = encrypt_with_public_key(testMessage,public_keys[originUsername]) # CREATE ciphertext for the guy accepting the request
+                        if (sessionKeyNotActive):
+                            session_key = generate_symmetric_key()
+                            sessionKeyNotActive = False
+                        
+                       
+                        ''' symmetric key encryption steps are below:'''
+                        #try:
+                            #session_key = generate_symmetric_key()
+                            #testText = "haayguys".encode('ascii')
+                            #print(testText)
+                            #print("Your key: ", session_key)
+                            #Ci = encrypt_with_fernet(session_key,testText)
+                            #print(Ci)
+                            #Pi = decrypt_with_fernet(session_key,Ci)
+                            #print("This is your plain: ", Pi)
+                        #except Exception as e:
+                            #print(e)
+
+                        #print("SERVER, your key: ", session_key)
+                        #print(type(session_key))
+                        
+                        ciphertext = encrypt_with_public_key(session_key,public_keys[originUsername]) # CREATE ciphertext for the guy accepting the request
                         onlineUsers[originUsername].send('CIPHER'.encode('ascii'))
                         encoded_ciphertext = base64.b64encode(ciphertext)
                         onlineUsers[originUsername].send(encoded_ciphertext) # send it to him
 
-                        ciphertext = encrypt_with_public_key(testMessage,public_keys[sender]) # CREATE ciphertext for the guy initiating the request
+                        ciphertext = encrypt_with_public_key(session_key,public_keys[sender]) # CREATE ciphertext for the guy initiating the request
                         onlineUsers[sender].send('CIPHER'.encode('ascii'))
                         encoded_ciphertext = base64.b64encode(ciphertext)
                         onlineUsers[sender].send(encoded_ciphertext) #send it to him
