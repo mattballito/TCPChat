@@ -1,3 +1,4 @@
+import base64
 import socket
 import threading
 import json
@@ -109,7 +110,8 @@ def receive():
                     print(sigAlg)
                     originalMessage = decrypted_message.split(' ')[1]
                     print(originalMessage)
-                    signature = decrypted_message.split(' ')[2]
+                    signature = base64.b64decode(bytes(decrypted_message.split(' ')[2], 'utf-8'))#LOOK: this converts the string to bytes then decode it from base64
+                    #signature = decrypted_message.split(' ')[2]
                     print(signature)
                    
                     if(sigAlg == 'RSA'):
@@ -119,11 +121,17 @@ def receive():
                         print(publicKeyFile)
                         publicKey= load_public_Key(publicKeyFile)
                         print("Public key:" ,publicKey)
-                        print(rsa.verify(originalMessage.encode(), signature, publicKey))
+                        # 
+                        # LOOK: Here, I believe we need to decode it back into bytes before you can pass it to rsa.verify().
+                        try:
+                            print(rsa.verify(originalMessage.encode(), base64.b64decode(signature), publicKey))#This converts signature from base64-string back into byte string, then it feeds the byte string into rsa.verify()
+                        except Exception as e:
+                            print(f"Failed to verify signature: {e}")
+                        #print(rsa.verify(originalMessage.encode(), signature, publicKey))
                         
                      
                         print(f'{private_chat_partner}: {originalMessage}')
-                    elif (sigALG == 'DSA'):
+                    elif (sigAlg == 'DSA'):
                         pass
             else:
                 print(message)
