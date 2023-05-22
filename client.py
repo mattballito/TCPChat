@@ -106,12 +106,12 @@ def receive():
                     decrypted_message = fernet.decrypt(encrypted_message)
                     
                     
-                    sigAlg = decrypted_message.split(b' ')[0]
+                    sigAlg = decrypted_message.split(b'\n')[0]
                     
                     
-                    originalMessage = decrypted_message.split(b' ')[1]
+                    originalMessage = decrypted_message.split(b'\n')[1]
                     
-                    signature = decrypted_message.split(b' ')[2]
+                    signature = decrypted_message.split(b'\n')[2]
                     
                    
                     if(sigAlg == b'RSA'):
@@ -188,7 +188,7 @@ def write():
                    
                     #encrypt with session key
                     fernet = Fernet(session_key)
-                    encrypted_message = fernet.encrypt(f'{signatureAlgorithm} {message} '.encode('utf-8') + signature)
+                    encrypted_message = fernet.encrypt(f'{signatureAlgorithm}\n{message}\n'.encode('utf-8') + signature)
 
                     #send rsa message
                     client.send(f'CHAT '.encode('ascii') + encrypted_message)
