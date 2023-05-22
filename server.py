@@ -96,9 +96,11 @@ def decrypt_with_fernet(key, ciphertext):
     return plaintext
 
 
-
+session_key = None
+sessionKeyNotActive = True
 
 def handle(client):
+    
     while True:
         try:
             message = client.recv(1024)
@@ -136,8 +138,7 @@ def handle(client):
 
                 
                     
-                session_key = None
-                sessionKeyNotActive = True
+                
 
                 if sender not in pendingRequests:
                     client.send(f'{sender} has not initiated a request with you!'.encode('ascii'))
@@ -170,7 +171,8 @@ def handle(client):
                             sessionUsers.append(onlineUsers[sender])  # Add sender to the session
                     
                         
-
+                        global session_key
+                        global sessionKeyNotActive
                         
                         if (sessionKeyNotActive):
                             session_key = generate_symmetric_key()

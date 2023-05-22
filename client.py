@@ -168,13 +168,18 @@ def write():
                 client.send(f'ACCEPT {inviter} {username}'.encode('ascii'))
         elif message.startswith('LEAVE'):
             client.send(f'LEAVE'.encode('ascii'))
+        elif message.startswith('ONLINE'):
+            client.send(f'ONLINE'.encode('ascii'))
 
         
 
         else:
             encode_text = message.encode('ascii')
-            Ci = encrypt_with_fernet(session_key,encode_text)
-            client.send(Ci)
+            if session_key != "1".encode('ascii'):
+                Ci = encrypt_with_fernet(session_key,encode_text)
+                client.send(Ci)
+            else:
+                client.send(encode_text)
 
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()
