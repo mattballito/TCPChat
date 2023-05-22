@@ -5,7 +5,7 @@ import hashlib
 from collections import defaultdict
 import base64
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric import padding, rsa, utils, dsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
 
@@ -22,6 +22,7 @@ sessionUsers = []
 nicknames = []
 pendingRequests = defaultdict(bool) # tracks users that have sent chat requests
 public_keys_pem = defaultdict(bool)
+dsa_keys = defaultdict(bool)
 
 
 def read_user_registry(file_path):
@@ -144,9 +145,28 @@ def handle(client):
                         hashes.SHA256()
                     )
                     print("Signature is valid.")
-                    client.send("Signature is valid!".encode('ascii'))
+                    client.send("RSA Signature is valid!".encode('ascii'))
                 except Exception as e:
                     print("Signature is invalid! ", e)
+                    client.send("Signature not valid".encode('ascii'))
+                
+            elif list_message[0] == 'DIGSIG(D)':
+                try:
+                    signedmsg = client.recv(1024)
+                    
+                    dsa_key_to_use = serialization.load_pem_public_key( #convert back to key object
+                        dsa_keys[get_username_of_client(client)].encode('ascii'),
+                        backend=default_backend()
+                    )
+
+                    dsa_key_to_use.verify(
+                        signedmsg,
+                        'DIGSIG(D)'.encode('ascii'),
+                        hashes.SHA256()
+                    )
+                    client.send("DSA Signature is valid!".encode('ascii'))
+                except Exception as e:
+                    print("Sig not valid..", e)
                     client.send("Signature not valid".encode('ascii'))
 
             elif list_message[0] == 'INVITE':
@@ -294,12 +314,14 @@ def receive():
             client.send(serialized_list)
 
             client.send('REQKEY'.encode('ascii'))
-            client_pub_pem = client.recv(1024).decode('ascii') # for key distro
+            client_pub_pem = client.recv(1024).decode('ascii') # for key distro and RSA sig verify
+            dsa_pub = client.recv(1024).decode('ascii') # for key distro
 
             number = "".join(filter(str.isdigit, nickname)) # 1, 2 , or 3
             print(f'Storing user{number} public key')
             
             public_keys_pem[nickname] = client_pub_pem
+            dsa_keys[nickname] = dsa_pub
 
             #sessionUsers.append(client) Don't just add the user to the session. Only add them if INVITE/ACCEPT command is followed through
             #broadcast(f'{nickname} joined the chat!'.encode('ascii'), client)

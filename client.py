@@ -4,7 +4,7 @@ import json
 import hashlib
 import base64
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, dsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -52,14 +52,45 @@ private_key_pem = private_key.private_bytes(
     encryption_algorithm=serialization.NoEncryption()
 )
 
+"""DSA STUFF"""
+dsa_private_key = dsa.generate_private_key(
+    key_size=1024,
+)
+#data = b"this is some data I'd like to sign"
+"""
+signature = dsa_private_key.sign(
+    data,
+    hashes.SHA256()
+)
+"""
+
+
+dsa_public_key = dsa_private_key.public_key()
+"""
+try:
+    dsa_public_key.verify(
+        signature,
+        data,
+        hashes.SHA256()
+    )
+    print("It's a valid sig!")
+except Exception as e:
+    print("Sig not valid..")
+"""
+
+
 
 
 username = input("Enter your username: ")
 password = input("Enter your password: ")
 mode = input("Select 'R' for RSA, otherwise DSA:")
 
+if ('R' not in mode):
+    mode = "D"
+
 session_key = "1".encode('ascii')
 serverHasRSAPublicKey = False
+serverHasDSAPublicKey = False
 
 def decrypt_with_private_key(ciphertext, priv_key):
     try:
@@ -121,8 +152,14 @@ def receive():
                     message = client.recv(1024).decode('ascii')
                     if message == 'REQKEY':
                         client.send(public_key_pem)
+                        client.send(dsa_public_key.public_bytes( # needed serialization to send over socket
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo
+                        ))
                         global serverHasRSAPublicKey
+                        global serverHasDSAPublicKey
                         serverHasRSAPublicKey = True
+                        serverHasDSAPublicKey = True
                     
 
             elif message.startswith('INVITATION'):
@@ -215,7 +252,22 @@ def write():
                 
             else:
                 print("server doesn't have the RSA pub. key")
+        elif message.startswith('DIGSIG') and mode != "R":
+            # DSA Dig Sig
+            if (serverHasDSAPublicKey):
+                # Encrypt the message using the DSA private key
+                signature = dsa_private_key.sign(
+                    'DIGSIG(D)'.encode('ascii'),
+                    hashes.SHA256()
+                )
+                msg = 'DIGSIG(D)'.encode('ascii')
 
+                client.send(msg)
+                client.send(signature)
+                
+                
+            else:
+                print("server doesn't have the DSA pub. key")
         
 
         else:
