@@ -50,7 +50,7 @@ def decrypt_key(cipher, key):
 def receive():
     global private_chat_active, session_key, private_chat_partner
     while True:
-        #try:
+        try:
             message = client.recv(1024).decode('ascii')
 
             if message == 'NICK':
@@ -74,7 +74,7 @@ def receive():
                 #set private chat partner, for nice display of messages
                 private_chat_partner = inviter
                 print(f'You have received an invitation from {inviter}!\nType "ACCEPT {inviter}" to accept the invitation.')
-                print("invitation private chat partner:", private_chat_partner)
+                
     
             elif message.startswith('SESSIONKEY '):
                 
@@ -90,7 +90,7 @@ def receive():
                 session_key = decrypted_sessionKey
                 #set chat as active
                 private_chat_active = True
-                print('Invite accepted, session key received')
+                
             elif message.startswith('CHAT '):
                 
                 if private_chat_active:
@@ -100,30 +100,33 @@ def receive():
                     # validate signature
                     #display message
                     
-                    print("made it to splitting chat message")
+                    
                     encrypted_message = message.split('CHAT ')[1].encode('ascii')
                     fernet = Fernet(session_key)
-                    decrypted_message = fernet.decrypt(encrypted_message).decode('utf-8')
-
-                    sigAlg = decrypted_message.split(' ')[0]
-                    print(sigAlg)
-                    originalMessage = decrypted_message.split(' ')[1]
-                    print(originalMessage)
-                    signature = decrypted_message.split(' ')[2]
-                    print(signature)
+                    decrypted_message = fernet.decrypt(encrypted_message)
+                    
+                    
+                    sigAlg = decrypted_message.split(b' ')[0]
+                    
+                    
+                    originalMessage = decrypted_message.split(b' ')[1]
+                    
+                    signature = decrypted_message.split(b' ')[2]
+                    
                    
-                    if(sigAlg == 'RSA'):
+                    if(sigAlg == b'RSA'):
                     
                         #decrypt signature
                         publicKeyFile = public_keys[private_chat_partner]
-                        print(publicKeyFile)
-                        publicKey= load_public_Key(publicKeyFile)
-                        print("Public key:" ,publicKey)
-
-                        print(rsa.verify(originalMessage.encode(), signature, publicKey))
                         
-                        print(f'{private_chat_partner}: {originalMessage}')
-                    elif (sigALG == 'DSA'):
+                        publicKey= load_public_Key(publicKeyFile)
+
+                        try:
+                            rsa.verify(originalMessage, signature, publicKey)
+                        except:
+                            print("Message not verified")
+                        print(f'{private_chat_partner}: {originalMessage.decode()}')
+                    elif (sigAlg == 'DSA'):
                         pass
             else:
                 print(message)
@@ -132,10 +135,10 @@ def receive():
                 print("Invalid login. Please restart the client!")
                 client.close()
 
-        #except:
-            #print("An error occurred!")
-            #client.close()
-            #break
+        except:
+            print("An error occurred!")
+            client.close()
+            break
 
 def write():
     global private_chat_active, session_key, private_chat_partner
@@ -172,7 +175,7 @@ def write():
                     #build message
                     pass
                 elif signatureAlgorithm == 'RSA':
-                    print("made it to RSA encryption")
+                    
                     #do rsa ds
                     
                     #get private key file
@@ -181,11 +184,11 @@ def write():
                     privatekey= load_private_Key(privateKeyFile)
                     #encrypt using the private key
                     signature = rsa.sign(message.encode(), privatekey, "SHA-256")
-                    print(signature)
+                    
                    
                     #encrypt with session key
                     fernet = Fernet(session_key)
-                    encrypted_message = fernet.encrypt(f'{signatureAlgorithm} {message} {signature}'.encode('utf-8'))
+                    encrypted_message = fernet.encrypt(f'{signatureAlgorithm} {message} '.encode('utf-8') + signature)
 
                     #send rsa message
                     client.send(f'CHAT '.encode('ascii') + encrypted_message)
