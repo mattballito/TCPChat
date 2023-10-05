@@ -74,3 +74,41 @@ import QtCharts 2.15
             }
         }
     }
+
+
+
+
+
+
+
+ChartView {
+        id: chartView
+        visible: false // Initially hide the chart
+        anchors.top: textField.bottom
+        width: parent.width
+        height: parent.height - textField.height // Adjust height to accommodate the TextField
+        antialiasing: true
+        legend.visible: true
+
+        ValueAxis {
+            id: axisX
+            min: 0
+            max: 4
+            labelFormat: "%.0f"
+            titleText: "X Axis"
+        }
+
+        ValueAxis {
+            id: axisY
+            min: 0
+            max: 5
+            labelFormat: "%.0f"
+            titleText: "Y Axis"
+        }
+
+        LineSeries {
+            id: lineSeries
+            name: "Line Series"
+            // Add more points as needed
+        }
+    }
