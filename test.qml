@@ -172,3 +172,16 @@ ChartView {
                 // Show the Popup
                 popup.open();
             }
+
+
+
+
+            function showGraphWindow(text) {
+                var component = Qt.createComponent('LineChartWindow.qml');
+                if (component.status === Component.Ready) {
+                    var window = component.createObject(null, { text: text });
+                    window.show();
+                } else {
+                    console.error("Error loading LineChartWindow.qml:", component.errorString());
+                }
+            }
