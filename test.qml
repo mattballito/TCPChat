@@ -2,6 +2,42 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtCharts 2.15
 
+function showGraph(text) {
+    // Create a simple line graph
+    var chartView = Qt.createQmlObject('import QtCharts 2.15; ChartView {}', parent);
+    chartView.title = "Sample Line Chart";
+
+    var lineSeries = Qt.createQmlObject('import QtCharts 2.15; LineSeries {}', chartView);
+    lineSeries.name = "Sample Series";
+    lineSeries.append(0, 1);
+    lineSeries.append(1, 3);
+    lineSeries.append(2, 2);
+    // Add more points as needed
+
+    var axisX = Qt.createQmlObject('import QtCharts 2.15; ValueAxis {}', chartView);
+    axisX.min = 0;
+    axisX.max = 4;
+    axisX.labelFormat = "%.0f";
+    axisX.titleText = "X Axis";
+
+    var axisY = Qt.createQmlObject('import QtCharts 2.15; ValueAxis {}', chartView);
+    axisY.min = 0;
+    axisY.max = 5;
+    axisY.labelFormat = "%.0f";
+    axisY.titleText = "Y Axis";
+
+    chartView.addSeries(lineSeries);
+    chartView.addAxis(axisX, Qt.AlignBottom);
+    chartView.addAxis(axisY, Qt.AlignLeft);
+
+    // Adjust chart position
+    chartView.x = calTextField.mapToItem(parent, 0, 0).x;
+    chartView.y = calTextField.mapToItem(parent, 0, 0).y + calTextField.height;
+
+    // Show the chart
+    chartView.show();
+}
+
 // Define a model for the chart data
     ListModel {
         id: chartModel
