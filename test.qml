@@ -2,12 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtCharts 2.15
 
-ApplicationWindow {
-    visible: true
-    width: 800
-    height: 600
-
-    // Define a model for the chart data
+// Define a model for the chart data
     ListModel {
         id: chartModel
         ListElement { x: 1; y: 2 }
@@ -49,9 +44,6 @@ ApplicationWindow {
             titleText: "Y Axis"
         }
 
-        // Assign the series to the chart
-        series: [lineSeries]
-
         TapHandler {
             acceptedButtons: Qt.RightButton
             onTapped: {
@@ -74,9 +66,11 @@ ApplicationWindow {
                     lineSeries.append(chartModel.get(i).x, chartModel.get(i).y);
                 }
 
+                // Assign the series to the chart
+                chartView.chart = lineSeries;
+
                 // Show the chart
                 chartView.show();
             }
         }
     }
-}
