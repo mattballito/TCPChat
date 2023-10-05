@@ -148,3 +148,27 @@ ChartView {
             // Add more points as needed
         }
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    onClicked: {
+                // Create the lineChart dynamically
+                var lineChart = Qt.createQmlObject('import QtQuick 2.15; import QtQuick.Controls 2.15; import QtCharts 2.15; Item { width: 300; height: 200; ChartView { anchors.fill: parent; antialiasing: true; ValueAxis { min: 0; max: 4; labelFormat: "%.0f"; titleText: "X Axis" } ValueAxis { min: 0; max: 5; labelFormat: "%.0f"; titleText: "Y Axis" } LineSeries { name: "Sample Series"; XYPoint { x: 0; y: 1 } XYPoint { x: 1; y: 3 } XYPoint { x: 2; y: 2 } } } }', regressionPlotMenu);
+                
+                // Create a Popup to show the lineChart
+                var popup = Qt.createQmlObject('import QtQuick 2.15; import QtQuick.Controls 2.15; Popup { width: 320; height: 240; modal: true; contentItem: lineChart }', regressionPlotMenu);
+                
+                // Show the Popup
+                popup.open();
+            }
